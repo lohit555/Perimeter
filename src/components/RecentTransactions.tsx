@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowRight, Check, RotateCw } from 'lucide-react'
-import { transactions, type Transaction } from '../data/mock'
+import { transactions as mockTransactions, type Transaction } from '../data/mock'
 
 const stateStyles: Record<Transaction['state'], string> = {
   Clear: 'bg-emerald-50 text-emerald-800',
@@ -17,14 +17,20 @@ function Avatar({ initials, color }: { initials: string; color: string }) {
   return (
     <div
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] text-white"
-      style={{ backgroundColor: color }}
+      style={{ backgroundColor: color || '#0D9488' }}
     >
       {initials}
     </div>
   )
 }
 
-export default function RecentTransactions() {
+export default function RecentTransactions({
+  transactions: customTransactions,
+}: {
+  transactions?: Transaction[]
+}) {
+  const displayList = customTransactions || mockTransactions
+
   return (
     <div className="card-flush flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line px-6 py-5">
@@ -33,8 +39,9 @@ export default function RecentTransactions() {
       </div>
 
       <div className="flex-1">
-        {transactions.map((t) => {
-          const Icon = stateIcon[t.state]
+        {displayList.map((t) => {
+          const Icon = stateIcon[t.state] || Check
+          const style = stateStyles[t.state] || stateStyles.Clear
           return (
             <div
               key={t.id}
@@ -57,7 +64,7 @@ export default function RecentTransactions() {
                 ${t.amount.toFixed(2)}
               </div>
 
-              <span className={`badge w-[118px] justify-center py-1 text-[12px] ${stateStyles[t.state]}`}>
+              <span className={`badge w-[118px] justify-center py-1 text-[12px] ${style}`}>
                 <Icon className="h-3 w-3" strokeWidth={2} />
                 {t.state}
               </span>
@@ -66,13 +73,21 @@ export default function RecentTransactions() {
             </div>
           )
         })}
+        {displayList.length === 0 && (
+          <div className="px-6 py-8 text-center text-[13px] text-graphite-faint">
+            No recent activity recorded.
+          </div>
+        )}
       </div>
 
       <div className="border-t border-line px-6 py-4">
-        <button className="inline-flex items-center gap-1.5 text-[14px] text-accent-deep transition-colors hover:text-accent">
+        <a
+          href="/ledger"
+          className="inline-flex items-center gap-1.5 text-[14px] text-accent-deep transition-colors hover:text-accent"
+        >
           View all activity
           <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
-        </button>
+        </a>
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ArrowRight, CreditCard } from 'lucide-react'
-import { cards, merchants } from '../data/mock'
+import { cards, merchants as mockMerchants, type Merchant } from '../data/mock'
 import { MerchantLogo } from './Badges'
 import CardPicker from './CardPicker'
 
@@ -8,10 +8,15 @@ import CardPicker from './CardPicker'
  * Token Isolation Map — one funding card at the centre, its isolated
  * per-site tokens fanned out around it. Pure SVG/CSS, no charting lib.
  */
-export default function TokenIsolationMap() {
+export default function TokenIsolationMap({
+  merchants: customMerchants,
+}: {
+  merchants?: Merchant[]
+}) {
+  const displayMerchants = customMerchants || mockMerchants
   const [cardId, setCardId] = useState<string>(cards[0].id)
-  const card = cards.find((c) => c.id === cardId)!
-  const scoped = merchants.filter((m) => m.cardId === cardId)
+  const card = cards.find((c) => c.id === cardId) || cards[0]
+  const scoped = displayMerchants.filter((m) => (m.cardId || cards[0].id) === cardId)
   const nodes = scoped.slice(0, 5)
 
   return (
@@ -65,7 +70,7 @@ export default function TokenIsolationMap() {
                   style={{ left: `${leftPct}%`, top: `${topPct}%` }}
                 >
                   <div className="flex flex-col items-center">
-                    <MerchantLogo initials={m.initials} color={m.logoColor} size="sm" />
+                    <MerchantLogo initials={m.initials} color={m.logoColor || '#0D9488'} size="sm" />
                     <div className="mt-1.5 text-[12px] text-graphite">{m.name}</div>
                     <div className="font-mono text-[10px] text-graphite-faint">
                       {m.maskedToken.slice(-4)}

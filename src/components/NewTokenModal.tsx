@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from './Modal'
 import { Plus, Check } from 'lucide-react'
+import { vaultApi } from '../api/vaultApi'
 
 export default function NewTokenModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [merchant, setMerchant] = useState('')
@@ -9,15 +10,36 @@ export default function NewTokenModal({ open, onClose }: { open: boolean; onClos
   const [oneTime, setOneTime] = useState(false)
   const [autoExpiry, setAutoExpiry] = useState(false)
   const [merchantLock, setMerchantLock] = useState(true)
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await vaultApi.createVendorAndToken({
+        merchant: merchant || domain || 'New Merchant',
+        domain: domain || 'merchant.com',
+        monthlyLimit: parseFloat(limit) || 200,
+        recurring: !oneTime,
+        oneTimeUse: oneTime,
+        autoExpiry: autoExpiry,
+      })
+      window.dispatchEvent(new CustomEvent('perimeter:data-updated'))
+    } catch (err) {
+      console.error('Failed to create token via API:', err)
+      // Fallback: event still dispatches so UI can show state
+      window.dispatchEvent(new CustomEvent('perimeter:data-updated'))
+    } finally {
+      setLoading(false)
+      onClose()
+    }
+  }
 
   return (
     <Modal open={open} onClose={onClose} title="Create Isolated Token" accent="bg-teal">
       <form
         className="space-y-5"
-        onSubmit={(e) => {
-          e.preventDefault()
-          onClose()
-        }}
+        onSubmit={handleSubmit}
       >
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -48,12 +70,12 @@ export default function NewTokenModal({ open, onClose }: { open: boolean; onClos
         </div>
 
         <div className="flex justify-end gap-3 pt-1">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
+          <button type="button" className="btn btn-ghost" onClick={onClose} disabled={loading}>
             Cancel
           </button>
-          <button type="submit" className="btn btn-primary">
+          <button type="submit" className="btn btn-primary" disabled={loading}>
             <Plus className="h-4 w-4" />
-            Create Token
+            {loading ? 'Creating...' : 'Create Token'}
           </button>
         </div>
       </form>
