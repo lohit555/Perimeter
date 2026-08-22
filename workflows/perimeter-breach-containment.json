@@ -1,0 +1,762 @@
+{
+  "name": "Perimeter - Breach Containment",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "perimeter/breach-event",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a183cc99-66e9-4f61-a626-5c93034f2aa8",
+      "name": "Breach Event Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        480
+      ],
+      "webhookId": "6618bb8b-9fd4-4088-a314-af5144568d8a"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst body = item && item.body ? item.body : (item || {});\nconst required = ['vendorName', 'domain', 'severity', 'userId'];\nconst missing = [];\nfor (const f of required) { if (!body[f]) missing.push(f); }\nconst severity = (body.severity || '').toString().toLowerCase();\nconst isHighOrCritical = severity === 'high' || severity === 'critical';\nconst fieldsValid = missing.length === 0;\nlet validationMessage;\nif (!fieldsValid) { validationMessage = 'Missing required field(s): ' + missing.join(', '); }\nelse if (!isHighOrCritical) { validationMessage = \"Severity '\" + body.severity + \"' is below the containment threshold (requires high or critical)\"; }\nelse { validationMessage = 'Event validated for containment'; }\nreturn [{ json: {\n  vendorName: body.vendorName || null,\n  domain: body.domain || null,\n  severity: body.severity || null,\n  userId: body.userId || null,\n  incidentId: body.incidentId || null,\n  detectedAt: body.detectedAt || null,\n  fieldsValid: fieldsValid,\n  missingFields: missing,\n  isHighOrCritical: isHighOrCritical,\n  validationMessage: validationMessage,\n  logStep: '1. Breach event received and validated'\n} }];"
+      },
+      "id": "7b36e3ae-fdfc-4005-a643-0954f05ac678",
+      "name": "Validate Breach Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "fields-valid",
+              "leftValue": "={{ $json.fieldsValid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "64e94145-b634-4fd5-b9db-be461a0bb3da",
+      "name": "All Required Fields Present?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "severity-gate",
+              "leftValue": "={{ $json.isHighOrCritical }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f4fb6512-9003-45c4-a050-339c875cdf27",
+      "name": "Severity High or Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://perimeter-vault-api.onrender.com/tokens",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "domain",
+              "value": "={{ $json.domain }}"
+            },
+            {
+              "name": "status",
+              "value": "active"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c79d7cc2-858e-4926-92de-04874fb41cd9",
+      "name": "Find Affected Tokens",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        288
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "64yFi5zz0LYUsnPk",
+          "name": "Perimeter Vault API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst tokens = [];\nfor (const it of items) {\n  const j = it.json || {};\n  if (Object.keys(j).length === 0) continue;\n  if (Array.isArray(j)) { for (const t of j) tokens.push(t); continue; }\n  if (Array.isArray(j.tokens)) { for (const t of j.tokens) tokens.push(t); continue; }\n  if (Array.isArray(j.data)) { for (const t of j.data) tokens.push(t); continue; }\n  if (Array.isArray(j.items)) { for (const t of j.items) tokens.push(t); continue; }\n  if (j.id || j.tokenId || j.token_id) tokens.push(j);\n}\nconst v = $('Validate Breach Event').first().json;\nreturn [{ json: {\n  tokens: tokens,\n  tokenCount: tokens.length,\n  vendorName: v.vendorName,\n  domain: v.domain,\n  severity: v.severity,\n  userId: v.userId,\n  incidentId: v.incidentId,\n  detectedAt: v.detectedAt,\n  logStep: '2. Vendor matched against active tokens (' + tokens.length + ' found)'\n} }];"
+      },
+      "id": "8e1e397a-9585-4047-95c8-747fdb7ebd62",
+      "name": "Summarize Active Tokens",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "has-tokens",
+              "leftValue": "={{ $json.tokenCount }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e0825ebb-3b7f-49cb-b638-a2208e8014c6",
+      "name": "Any Active Tokens?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $('Summarize Active Tokens').first().json;\nconst out = [];\nfor (const t of s.tokens) {\n  out.push({ json: {\n    id: t.id || t.tokenId || t.token_id,\n    vendor_id: t.vendor_id != null ? t.vendor_id : (t.vendorId != null ? t.vendorId : null),\n    vendor_name: t.vendor_name || s.vendorName || null,\n    vendor_domain: t.vendor_domain || s.domain || null,\n    masked_value: t.masked_value || null,\n    monthly_limit: t.monthly_limit != null ? t.monthly_limit : null,\n    recurring: t.recurring != null ? t.recurring : false,\n    incidentId: s.incidentId,\n    detectedAt: s.detectedAt,\n    token: t\n  } });\n}\nreturn out;"
+      },
+      "id": "61311f13-4d06-459a-a111-0ffb38dde8d9",
+      "name": "Expand Tokens To Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://perimeter-vault-api.onrender.com/breach-events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"vendor_id\": $json.vendor_id, \"description\": \"StreamFlix payment-data breach detected\", \"auto_rotate\": false} }}",
+        "options": {}
+      },
+      "id": "ee961d5e-0efe-40c2-a740-a917da6e9c30",
+      "name": "Create Breach Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1792,
+        112
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "64yFi5zz0LYUsnPk",
+          "name": "Perimeter Vault API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://perimeter-vault-api.onrender.com/audit-events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"breach_event_id\": $('Create Breach Event').item.json.breach_event.id, \"label\": \"Token Located\", \"detail\": \"Active token \" + $('Expand Tokens To Items').item.json.masked_value + \" located for the breached vendor.\", \"done\": true} }}",
+        "options": {}
+      },
+      "id": "ef787b88-08cf-408c-94d0-e28793fc8355",
+      "name": "Audit: Token Located",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2016,
+        48
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "64yFi5zz0LYUsnPk",
+          "name": "Perimeter Vault API Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://perimeter-vault-api.onrender.com/tokens/{{ $('Expand Tokens To Items').item.json.id }}/revoke",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "1ca902d2-fa4f-4cf9-ad8a-2605a6b1df96",
+      "name": "Revoke Compromised Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2240,
+        48
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "64yFi5zz0LYUsnPk",
+          "name": "Perimeter Vault API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://perimeter-vault-api.onrender.com/audit-events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"breach_event_id\": $('Create Breach Event').item.json.breach_event.id, \"label\": \"Token Revoked\", \"detail\": \"Token \" + $('Expand Tokens To Items').item.json.masked_value + \" permanently revoked — no further charges possible.\", \"done\": true} }}",
+        "options": {}
+      },
+      "id": "763862e6-f882-4b5a-982a-63d78e0ab47f",
+      "name": "Audit: Token Revoked",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2464,
+        -32
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "64yFi5zz0LYUsnPk",
+          "name": "Perimeter Vault API Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://perimeter-vault-api.onrender.com/tokens",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"vendor_id\": $('Expand Tokens To Items').item.json.vendor_id, \"monthly_limit\": $('Expand Tokens To Items').item.json.monthly_limit, \"recurring\": $('Expand Tokens To Items').item.json.recurring} }}",
+        "options": {}
+      },
+      "id": "58cce79d-8f4c-4e83-a6ec-ee1cbe543968",
+      "name": "Create Replacement Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2688,
+        -32
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "64yFi5zz0LYUsnPk",
+          "name": "Perimeter Vault API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://perimeter-vault-api.onrender.com/audit-events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"breach_event_id\": $('Create Breach Event').item.json.breach_event.id, \"label\": \"Replacement Token Issued\", \"detail\": \"Replacement token \" + $('Create Replacement Token').item.json.masked_value + \" issued for the breached vendor.\", \"done\": true} }}",
+        "options": {}
+      },
+      "id": "90333648-3aea-4aa3-8850-8919ba430136",
+      "name": "Audit: Replacement Issued",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2912,
+        -80
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "64yFi5zz0LYUsnPk",
+          "name": "Perimeter Vault API Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://perimeter-vault-api.onrender.com/audit-events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"breach_event_id\": $('Create Breach Event').item.json.breach_event.id, \"label\": \"User Notified\", \"detail\": \"Perimeter contained the StreamFlix breach. Other merchant tokens remain active.\", \"done\": true} }}",
+        "options": {}
+      },
+      "id": "353e2eb0-dbd4-4028-b515-aeb290213bb1",
+      "name": "Surface Dashboard Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3136,
+        -80
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "64yFi5zz0LYUsnPk",
+          "name": "Perimeter Vault API Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": true, \"action\": \"token_revoked_and_replaced\", \"vendor\": $('Summarize Active Tokens').first().json.vendorName, \"affectedTokens\": $('Summarize Active Tokens').first().json.tokenCount, \"message\": \"The breached vendor token was contained. Other tokens remain active.\"} }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "6825cf3a-106e-4e5d-a163-d5e018ff918a",
+      "name": "Respond Containment Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3360,
+        -80
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"success\": false, \"action\": \"containment_failed\", \"message\": \"A Perimeter Vault API call failed during breach containment. Check the execution log for the failing node.\"}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "c3ef81b3-20d6-4358-8341-94f0e01b2c75",
+      "name": "Respond Containment Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2912,
+        384
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://perimeter-vault-api.onrender.com/audit-events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"label\": \"No Active Token\", \"detail\": \"Breach received, but no active token was found for this vendor.\", \"done\": true} }}",
+        "options": {}
+      },
+      "id": "0c7bd425-80c3-49a6-8396-3dcb41a9f417",
+      "name": "Audit: No Active Token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1568,
+        336
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "64yFi5zz0LYUsnPk",
+          "name": "Perimeter Vault API Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": true, \"action\": \"no_containment_needed\", \"vendor\": $('Summarize Active Tokens').first().json.vendorName, \"affectedTokens\": 0, \"message\": \"Breach received, but no active token was found for this vendor. No containment was necessary.\"} }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "1e328527-416e-4292-a8c6-7ac18091519c",
+      "name": "Respond No Containment Needed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1792,
+        336
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": true, \"action\": \"no_action_needed\", \"message\": $json.validationMessage} }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "70093889-1865-47d9-9820-aceda73b03bc",
+      "name": "Respond No Action (Low Severity)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": false, \"action\": \"validation_failed\", \"message\": $json.validationMessage, \"missingFields\": $json.missingFields} }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "1fae16ab-0e48-4bdb-b6fb-3e141b23416c",
+      "name": "Respond 400 (Missing Fields)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        576
+      ]
+    }
+  ],
+  "pinData": {
+    "Breach Event Webhook": [
+      {
+        "json": {
+          "headers": {},
+          "query": {},
+          "params": {},
+          "body": {
+            "vendorName": "StreamFlix",
+            "domain": "streamflix.com",
+            "severity": "high",
+            "incidentId": "breach-demo-001",
+            "detectedAt": "2026-08-21T18:00:00Z",
+            "userId": "demo-user-001"
+          }
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Breach Event Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Breach Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Breach Event": {
+      "main": [
+        [
+          {
+            "node": "All Required Fields Present?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All Required Fields Present?": {
+      "main": [
+        [
+          {
+            "node": "Severity High or Critical?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400 (Missing Fields)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Severity High or Critical?": {
+      "main": [
+        [
+          {
+            "node": "Find Affected Tokens",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond No Action (Low Severity)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Affected Tokens": {
+      "main": [
+        [
+          {
+            "node": "Summarize Active Tokens",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Containment Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize Active Tokens": {
+      "main": [
+        [
+          {
+            "node": "Any Active Tokens?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Active Tokens?": {
+      "main": [
+        [
+          {
+            "node": "Expand Tokens To Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Audit: No Active Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Tokens To Items": {
+      "main": [
+        [
+          {
+            "node": "Create Breach Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Breach Event": {
+      "main": [
+        [
+          {
+            "node": "Audit: Token Located",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Containment Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit: Token Located": {
+      "main": [
+        [
+          {
+            "node": "Revoke Compromised Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revoke Compromised Token": {
+      "main": [
+        [
+          {
+            "node": "Audit: Token Revoked",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Containment Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit: Token Revoked": {
+      "main": [
+        [
+          {
+            "node": "Create Replacement Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Replacement Token": {
+      "main": [
+        [
+          {
+            "node": "Audit: Replacement Issued",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Containment Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit: Replacement Issued": {
+      "main": [
+        [
+          {
+            "node": "Surface Dashboard Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Surface Dashboard Alert": {
+      "main": [
+        [
+          {
+            "node": "Respond Containment Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit: No Active Token": {
+      "main": [
+        [
+          {
+            "node": "Respond No Containment Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b33b356c-45c6-477d-a214-de3ffd502ab0",
+  "meta": {
+    "instanceId": "b144ad7e79ee57f8c07fa1175468488c6b34ee7b14e7e12ef4912637f5b5e86a"
+  },
+  "nodeGroups": [],
+  "id": "BvDtuRsfc8M89lse",
+  "tags": []
+}

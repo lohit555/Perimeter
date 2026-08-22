@@ -30,6 +30,17 @@ Perimeter is a token isolation platform with a real, working backend:
 - **Immutable audit ledger.** Every action — issuance, rotation, revocation, containment — is recorded in a tamper-evident trail.
 - **Risk scoring that's explainable.** A merchant's risk level is derived from concrete flagged transactions, not a black box: two flags make it High, one makes it Medium.
 
+## Automation
+
+Breach containment runs on its own. An [n8n](https://n8n.io) workflow — *Perimeter - Breach Containment* — turns the dashboard's containment timeline into a live, event-driven runbook:
+
+![Breach containment workflow](screenshots/workflow.png)
+
+A webhook receives the breach event, validates it (required fields, then a high/critical severity gate), and matches the vendor's active tokens through the Vault API. If any exist, the workflow creates the breach event, revokes each compromised token, issues a replacement with the same limits, writes every step to the audit ledger (located → revoked → replaced → notified), and answers the caller. Low-severity events and vendors with no active tokens short-circuit with clean responses; any API failure returns a 500 so nothing is silently dropped.
+
+- **Live workflow:** [Perimeter - Breach Containment](https://lohit22.app.n8n.cloud/workflow/BvDtuRsfc8M89lse)
+- **Importable JSON:** [`workflows/perimeter-breach-containment.json`](workflows/perimeter-breach-containment.json) — in n8n, use **Workflows → Import from File** to load it into your own instance.
+
 ## How we built it
 
 **Frontend.** Vite + React 18 + TypeScript + Tailwind CSS 3, with React Router for the five-page app and Zustand for modal state. The centerpiece Token Isolation Map is pure SVG/CSS positioned radially around the funding source — deliberately zero charting dependencies. Everything renders from a typed mock dataset today so the product can be demoed with no backend running.
