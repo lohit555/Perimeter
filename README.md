@@ -6,11 +6,9 @@
 
 ## Screenshots
 
-<!-- Drop screenshots here once you have them, e.g.:
-![Dashboard](screenshots/dashboard.png)
-![Breach Containment](screenshots/containment.png)
-![Exposure Ledger](screenshots/ledger.png)
--->
+![Perimeter landing page](screenshots/hero.png)
+
+![Perimeter dashboard](screenshots/dashboard.png)
 
 ## Inspiration
 
