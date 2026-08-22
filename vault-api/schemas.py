@@ -79,6 +79,7 @@ class TransactionRead(BaseModel):
 class BreachEventCreate(BaseModel):
     vendor_id: UUID
     description: str
+    auto_rotate: bool = True
 
 
 class BreachEventRead(BaseModel):

@@ -24,20 +24,21 @@ async def create_breach_event(
     await session.commit()
     await session.refresh(breach_event)
 
-    active_tokens = (
-        await session.execute(
-            select(Token).where(Token.vendor_id == vendor.id, Token.status == "active")
-        )
-    ).scalars().all()
-
     rotations: list[Rotation] = []
-    for token in active_tokens:
-        token.status = "revoked"
-        session.add(token)
-        await session.commit()
+    if payload.auto_rotate:
+        active_tokens = (
+            await session.execute(
+                select(Token).where(Token.vendor_id == vendor.id, Token.status == "active")
+            )
+        ).scalars().all()
 
-        new_token = await issue_token(session, vendor.id, token.monthly_limit, token.recurring)
-        rotations.append(Rotation(old_token_id=token.id, new_token_id=new_token.id))
+        for token in active_tokens:
+            token.status = "revoked"
+            session.add(token)
+            await session.commit()
+
+            new_token = await issue_token(session, vendor.id, token.monthly_limit, token.recurring)
+            rotations.append(Rotation(old_token_id=token.id, new_token_id=new_token.id))
 
     return BreachEventResponse(
         breach_event=BreachEventRead.model_validate(breach_event, from_attributes=True),
