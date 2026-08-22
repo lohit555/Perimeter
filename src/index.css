@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---- Creato Display -------------------------------------------------
+   Only the Regular cut was supplied, so the whole 100–700 range is mapped
+   onto it. That stops the browser synthesising a fake bold and keeps the
+   face uniformly thin, which is the point of the typeface. */
+@font-face {
+  font-family: 'Creato Display';
+  src: url('/assets/CreatoDisplay-Regular.otf') format('opentype');
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
 }
@@ -16,23 +28,174 @@ body {
   margin: 0;
   background-color: #f8fafc;
   color: #0f172a;
-  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Creato Display', ui-sans-serif, system-ui, sans-serif;
+  font-synthesis-weight: none;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
 @layer components {
-  .card {
-    @apply rounded-lg bg-white border border-slate-200/80 shadow-card;
+  /* ---- Type ------------------------------------------------------ */
+  /* Main headers: Creato Display, thin and wide-set. */
+  .headline {
+    @apply font-sans font-normal;
+    letter-spacing: -0.03em;
+    line-height: 1;
   }
+  /* Editorial accent: Playfair italic, used sparingly inside headlines. */
+  .accent {
+    @apply font-display font-normal italic;
+    letter-spacing: -0.01em;
+  }
+  .eyebrow {
+    @apply text-[11px] font-normal uppercase;
+    letter-spacing: 0.2em;
+  }
+
+  /* ---- Glass ----------------------------------------------------- */
+  /* One glass recipe at three strengths. Each pairs a translucent fill
+     with a hairline border and an inset top highlight, which is what
+     actually sells the material. */
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: saturate(1.4) blur(12px);
+    -webkit-backdrop-filter: saturate(1.4) blur(12px);
+  }
+  .glass-panel {
+    @apply rounded-2xl border border-white/10;
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: saturate(1.5) blur(20px);
+    -webkit-backdrop-filter: saturate(1.5) blur(20px);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  }
+  .glass-panel-strong {
+    @apply rounded-2xl border border-white/[0.14];
+    background: rgba(255, 255, 255, 0.075);
+    backdrop-filter: saturate(1.6) blur(28px);
+    -webkit-backdrop-filter: saturate(1.6) blur(28px);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.12),
+      0 24px 60px -24px rgba(0, 0, 0, 0.8);
+  }
+  .glass-subtle {
+    @apply rounded-xl border border-white/[0.07];
+    background: rgba(255, 255, 255, 0.025);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+  .glass-bar {
+    background: rgba(7, 9, 13, 0.55);
+    backdrop-filter: saturate(1.6) blur(20px);
+    -webkit-backdrop-filter: saturate(1.6) blur(20px);
+  }
+
+  /* ---- Liquid glass ---------------------------------------------- */
+  /* Heavier blur plus a big saturation lift, so whatever scrolls under
+     it bleeds through as colour. The ::before layer is the specular
+     sheen — a bright top edge falling off fast — which is what separates
+     liquid glass from a plain frosted panel. It floats over both the
+     dark and the light bands, so it stays dark-tinted throughout and its
+     white label text never has to change colour. */
+  .liquid-glass {
+    position: relative;
+    isolation: isolate;
+    background: rgba(11, 14, 20, 0.55);
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.22),
+      inset 0 -1px 0 0 rgba(255, 255, 255, 0.05),
+      0 12px 40px -12px rgba(0, 0, 0, 0.55);
+  }
+  .liquid-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.05) 20%,
+      rgba(255, 255, 255, 0) 55%
+    );
+  }
+
+  /* ---- Glass on light bands -------------------------------------- */
+  .glass-panel-light {
+    @apply rounded-2xl border border-white;
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: saturate(1.4) blur(20px);
+    -webkit-backdrop-filter: saturate(1.4) blur(20px);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+      0 12px 32px -16px rgba(15, 23, 42, 0.18);
+  }
+  .glass-subtle-light {
+    @apply rounded-xl border border-white/80;
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* ---- Creato Display variations --------------------------------- */
+  /* Only the Regular cut exists, so hierarchy is built from size,
+     tracking, case and colour rather than weight. Each step below is a
+     distinct optical treatment of the same face. */
+  .t-display {
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+  }
+  .t-title {
+    letter-spacing: -0.022em;
+    line-height: 1.15;
+  }
+  .t-body {
+    letter-spacing: -0.006em;
+  }
+  .t-label {
+    @apply text-[11px] uppercase;
+    letter-spacing: 0.14em;
+  }
+  .t-micro {
+    @apply text-[11px];
+    letter-spacing: 0.02em;
+  }
+  /* lining figures, evenly spaced — for money and counts */
+  .t-num {
+    font-variant-numeric: tabular-nums lining-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* ---- App shell surfaces ---------------------------------------- */
+  .card {
+    @apply rounded-xl border border-line bg-paper-raised;
+  }
+  .card-flush {
+    @apply overflow-hidden rounded-xl border border-line bg-paper-raised;
+  }
+  .row-rule {
+    @apply border-b border-line-soft last:border-b-0;
+  }
+  /* Sidebar sits on the night ground, so its links are light-on-dark. */
   .nav-link {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-ink;
+    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] text-slate-400 transition-colors hover:bg-white/[0.06] hover:text-white;
   }
   .nav-link-active {
-    @apply bg-teal-50 text-teal-700 hover:bg-teal-50 hover:text-teal-700;
+    @apply bg-white/[0.09] text-white hover:bg-white/[0.09] hover:text-white;
+  }
+  /* quiet control used for filters, sorts and card pickers */
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-lg border border-line bg-paper-raised px-3.5 py-2 text-[13px] text-graphite-soft transition-colors hover:border-graphite-faint hover:text-graphite;
+  }
+  .chip-active {
+    @apply border-accent/25 bg-accent-soft text-accent-deep hover:border-accent/25 hover:text-accent-deep;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-normal transition-all duration-200 disabled:opacity-50;
   }
   .btn-primary {
     @apply bg-teal text-white hover:bg-teal-700;
@@ -40,14 +203,128 @@ body {
   .btn-ghost {
     @apply bg-white text-ink border border-slate-200 hover:bg-slate-50;
   }
+  .btn-light {
+    @apply bg-white text-night-950 hover:bg-slate-100;
+  }
+  /* glass button for dark surfaces */
+  .btn-glass {
+    @apply border border-white/15 text-white;
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: saturate(1.5) blur(16px);
+    -webkit-backdrop-filter: saturate(1.5) blur(16px);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  }
+  .btn-glass:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
   .btn-danger {
     @apply bg-red-600 text-white hover:bg-red-700;
   }
   .badge {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-normal;
   }
   .input {
-    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-ink placeholder:text-slate-400 focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/20;
+    @apply w-full rounded-lg border border-line bg-paper-raised px-3 py-2 text-sm text-graphite placeholder:text-graphite-faint focus:border-graphite-faint focus:outline-none;
+  }
+}
+
+@layer utilities {
+  /* 3D perspective helpers */
+  .perspective {
+    perspective: 1600px;
+  }
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+
+  /* Flat dark ground. A single low-opacity tint sits behind the glass —
+     no multi-stop gradient wash. */
+  .bg-night-flat {
+    background-color: #07090d;
+  }
+  /* light band — breaks up the dark stretches */
+  .bg-light-band {
+    background-color: #f4f6f9;
+  }
+  .tint-teal {
+    background-image: radial-gradient(
+      50% 40% at 70% 8%,
+      rgba(13, 148, 136, 0.14) 0%,
+      rgba(13, 148, 136, 0) 70%
+    );
+  }
+  .tint-teal-light {
+    background-image: radial-gradient(
+      45% 45% at 80% 0%,
+      rgba(13, 148, 136, 0.09) 0%,
+      rgba(13, 148, 136, 0) 70%
+    );
+  }
+
+  /* hairline grid tuned for light bands */
+  .bg-hairline-dark {
+    background-image:
+      linear-gradient(rgba(15, 23, 42, 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 42, 0.5) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  /* soft seams where a dark band meets a light one */
+  .seam-to-light {
+    background-image: linear-gradient(to bottom, #07090d, #f4f6f9);
+  }
+  .seam-to-dark {
+    background-image: linear-gradient(to bottom, #f4f6f9, #07090d);
+  }
+
+  /* hairline grid seen through the glass */
+  .bg-hairline {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.6) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.6) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  .edge-light {
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes float-y-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-float {
+  animation: float-y 6s ease-in-out infinite;
+}
+.animate-float-slow {
+  animation: float-y-slow 8s ease-in-out infinite;
+}
+.animate-rise {
+  animation: rise-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-slow,
+  .animate-rise {
+    animation: none;
   }
 }
 

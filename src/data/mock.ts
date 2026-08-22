@@ -1,8 +1,19 @@
 export type TokenStatus = 'Active' | 'Paused' | 'Revoked'
 export type RiskLevel = 'Low' | 'Medium' | 'High'
 
+export interface Card {
+  id: string
+  label: string
+  network: 'Visa' | 'Mastercard' | 'Amex'
+  last4: string
+  /* muted brand tone — used for the card chip, never as a glow */
+  tone: string
+}
+
 export interface Merchant {
   id: string
+  /* funding card this token is issued against */
+  cardId: string
   name: string
   domain: string
   logoColor: string
@@ -24,14 +35,25 @@ export interface ActivityEvent {
   time: string
 }
 
+export const cards: Card[] = [
+  { id: 'c1', label: 'TD Cash-Back', network: 'Visa', last4: '1234', tone: '#1F6F52' },
+  { id: 'c2', label: 'Chase Sapphire', network: 'Visa', last4: '8842', tone: '#1E3A5F' },
+  { id: 'c3', label: 'Amex Gold', network: 'Amex', last4: '3007', tone: '#7A5C1E' },
+]
+
 export const fundingSource = {
   label: 'Chase •••• 8842',
   balance: 4820.55,
 }
 
+export function cardById(id: string): Card | undefined {
+  return cards.find((c) => c.id === id)
+}
+
 export const merchants: Merchant[] = [
   {
     id: 'm1',
+    cardId: 'c1',
     name: 'StreamFlix',
     domain: 'streamflix.com',
     logoColor: '#E11D48',
@@ -46,6 +68,7 @@ export const merchants: Merchant[] = [
   },
   {
     id: 'm2',
+    cardId: 'c2',
     name: 'Amazon',
     domain: 'amazon.com',
     logoColor: '#FF9900',
@@ -60,6 +83,7 @@ export const merchants: Merchant[] = [
   },
   {
     id: 'm3',
+    cardId: 'c1',
     name: 'Uber',
     domain: 'uber.com',
     logoColor: '#0F172A',
@@ -74,6 +98,7 @@ export const merchants: Merchant[] = [
   },
   {
     id: 'm4',
+    cardId: 'c1',
     name: 'Spotify',
     domain: 'spotify.com',
     logoColor: '#1DB954',
@@ -88,6 +113,7 @@ export const merchants: Merchant[] = [
   },
   {
     id: 'm5',
+    cardId: 'c3',
     name: 'CloudStore',
     domain: 'cloudstore.io',
     logoColor: '#2563EB',
@@ -102,6 +128,7 @@ export const merchants: Merchant[] = [
   },
   {
     id: 'm6',
+    cardId: 'c2',
     name: 'ShadyDeals',
     domain: 'shadydeals.tv',
     logoColor: '#7C3AED',
@@ -170,3 +197,73 @@ export const containmentSteps = [
 ]
 
 export const protectedMerchants = ['Uber', 'Spotify', 'StreamFlix', 'Amazon', 'CloudStore']
+
+export interface Transaction {
+  id: string
+  merchant: string
+  domain: string
+  initials: string
+  logoColor: string
+  maskedToken: string
+  amount: number
+  state: 'Clear' | 'Auto-rotated' | 'Flagged'
+  time: string
+}
+
+export const transactions: Transaction[] = [
+  {
+    id: 't1',
+    merchant: 'StreamFlix',
+    domain: 'streamflix.com',
+    initials: 'SF',
+    logoColor: '#E11D48',
+    maskedToken: '•••• 1234',
+    amount: 15.99,
+    state: 'Clear',
+    time: '2h ago',
+  },
+  {
+    id: 't2',
+    merchant: 'CloudStore',
+    domain: 'cloudstore.io',
+    initials: 'CS',
+    logoColor: '#2563EB',
+    maskedToken: '•••• 9055',
+    amount: 58.2,
+    state: 'Auto-rotated',
+    time: '5h ago',
+  },
+  {
+    id: 't3',
+    merchant: 'Unknown source',
+    domain: 'quick-pay-checkout.net',
+    initials: '?',
+    logoColor: '#94A3B8',
+    maskedToken: '•••• 1100',
+    amount: 212.0,
+    state: 'Flagged',
+    time: '1d ago',
+  },
+  {
+    id: 't4',
+    merchant: 'Uber',
+    domain: 'uber.com',
+    initials: 'UB',
+    logoColor: '#0F172A',
+    maskedToken: '•••• 7766',
+    amount: 42.0,
+    state: 'Clear',
+    time: '2d ago',
+  },
+  {
+    id: 't5',
+    merchant: 'Spotify',
+    domain: 'spotify.com',
+    initials: 'SP',
+    logoColor: '#1DB954',
+    maskedToken: '•••• 3301',
+    amount: 9.99,
+    state: 'Clear',
+    time: '3d ago',
+  },
+]

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Perimeter Demo Store</title>
+  <link rel="stylesheet" href="checkout.css" />
+</head>
+<body>
+  <div class="store">
+    <h1>PERIMETER DEMO STORE</h1>
+
+    <section class="summary">
+      <h2>Order Summary</h2>
+      <div class="line-item">
+        <span>Premium Product</span>
+        <span>$49.99</span>
+      </div>
+    </section>
+
+    <section class="payment">
+      <h2>Payment</h2>
+
+      <label for="card-number">Card Number</label>
+      <input id="card-number" name="card-number" type="text" inputmode="numeric" placeholder="•••• •••• •••• ••••" autocomplete="off" />
+
+      <div class="row">
+        <div>
+          <label for="expiry">Expiry</label>
+          <input id="expiry" name="expiry" type="text" placeholder="MM/YY" autocomplete="off" />
+        </div>
+        <div>
+          <label for="cvv">CVV</label>
+          <input id="cvv" name="cvv" type="text" placeholder="•••" autocomplete="off" />
+        </div>
+      </div>
+
+      <button id="complete-purchase" type="button">Complete Purchase</button>
+
+      <p id="transaction-result" class="transaction-result" hidden></p>
+    </section>
+  </div>
+  <script src="checkout.js"></script>
+</body>
+</html>
