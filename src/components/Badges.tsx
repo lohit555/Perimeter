@@ -1,9 +1,9 @@
 import type { TokenStatus, RiskLevel } from '../data/mock'
 
 const statusStyles: Record<TokenStatus, string> = {
-  Active: 'bg-emerald-50 text-emerald-700',
-  Paused: 'bg-amber-50 text-amber-700',
-  Revoked: 'bg-red-50 text-red-700',
+  Active: 'bg-emerald-50 text-emerald-800',
+  Paused: 'bg-amber-50 text-amber-800',
+  Revoked: 'bg-rose-50 text-rose-800',
 }
 
 const riskStyles: Record<RiskLevel, string> = {
@@ -46,7 +46,7 @@ export function MerchantLogo({
   const dim = size === 'sm' ? 'h-8 w-8 text-xs' : 'h-10 w-10 text-sm'
   return (
     <div
-      className={`flex ${dim} shrink-0 items-center justify-center rounded-lg font-bold text-white`}
+      className={`flex ${dim} shrink-0 items-center justify-center rounded-lg text-white`}
       style={{ backgroundColor: color }}
     >
       {initials}
