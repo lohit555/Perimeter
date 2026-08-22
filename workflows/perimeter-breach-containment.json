@@ -203,7 +203,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {\"vendor_id\": $json.vendor_id, \"description\": \"StreamFlix payment-data breach detected\", \"auto_rotate\": false} }}",
+        "jsonBody": "={{ {\"vendor_id\": $json.vendor_id, \"description\": ($json.incidentId ? $json.vendor_name + \" payment-data breach detected (incident \" + $json.incidentId + \")\" : $json.vendor_name + \" payment-data breach detected\"), \"auto_rotate\": false} }}",
         "options": {}
       },
       "id": "ee961d5e-0efe-40c2-a740-a917da6e9c30",
@@ -362,7 +362,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ {\"breach_event_id\": $('Create Breach Event').item.json.breach_event.id, \"label\": \"User Notified\", \"detail\": \"Perimeter contained the StreamFlix breach. Other merchant tokens remain active.\", \"done\": true} }}",
+        "jsonBody": "={{ {\"breach_event_id\": $('Create Breach Event').item.json.breach_event.id, \"label\": \"User Notified\", \"detail\": \"Perimeter contained the \" + $('Summarize Active Tokens').first().json.vendorName + \" breach. Other merchant tokens remain active.\", \"done\": true} }}",
         "options": {}
       },
       "id": "353e2eb0-dbd4-4028-b515-aeb290213bb1",
