@@ -20,5 +20,8 @@
     "service_worker": "background/service-worker.js",
     "type": "module"
   },
-  "permissions": ["activeTab", "scripting", "storage"]
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://perimeter-vault-api.onrender.com/*"
+  ]
 }
