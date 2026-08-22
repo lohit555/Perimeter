@@ -46,6 +46,20 @@ class TokenReveal(BaseModel):
     value: str
 
 
+class TokenListItem(BaseModel):
+    id: UUID
+    vendor_id: UUID
+    vendor_name: str
+    vendor_domain: str
+    masked_value: str
+    status: str
+    recurring: bool
+    monthly_limit: float
+    spent: float
+    issued_at: datetime
+    last_used_at: Optional[datetime]
+
+
 class TransactionCreate(BaseModel):
     token_id: UUID
     amount: float
@@ -112,3 +126,19 @@ class LedgerActivityEvent(BaseModel):
 class LedgerResponse(BaseModel):
     merchants: List[LedgerMerchant]
     activity: List[LedgerActivityEvent]
+
+
+class AuditEventCreate(BaseModel):
+    breach_event_id: Optional[UUID] = None
+    label: str
+    detail: str
+    done: bool = True
+
+
+class AuditEventRead(BaseModel):
+    id: UUID
+    breach_event_id: Optional[UUID]
+    label: str
+    detail: str
+    done: bool
+    created_at: datetime

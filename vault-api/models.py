@@ -62,3 +62,14 @@ class BreachEvent(SQLModel, table=True):
     detected_at: datetime = Field(default_factory=utcnow, sa_column=_tz_column())
     resolved: bool = Field(default=False)
     resolved_at: Optional[datetime] = Field(default=None, sa_column=_tz_column(nullable=True))
+
+
+class AuditEvent(SQLModel, table=True):
+    __tablename__ = "audit_event"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    breach_event_id: Optional[UUID] = Field(default=None, foreign_key="breach_event.id", index=True)
+    label: str
+    detail: str
+    done: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utcnow, sa_column=_tz_column())
