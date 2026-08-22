@@ -26,3 +26,6 @@ venv/
 .DS_Store
 Thumbs.db
 .idea/
+
+# freebuff tooling state
+.freebuff/
