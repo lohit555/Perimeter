@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from db import init_db
-from routers import audit_events, breach_events, ledger, tokens, transactions, vendors
+from routers import audit_events, breach_events, emergency_lock, ledger, tokens, transactions, vendors
 
 
 @asynccontextmanager
@@ -30,6 +30,7 @@ app.include_router(transactions.router)
 app.include_router(breach_events.router)
 app.include_router(ledger.router)
 app.include_router(audit_events.router)
+app.include_router(emergency_lock.router)
 
 
 @app.get("/health")

@@ -1,4 +1,23 @@
+# dependencies
 node_modules/
+
+# build output
+dist/
+
+# local caches
+.vite/
+*.tsbuildinfo
+
+# logs
+*.log
+npm-debug.log*
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# python (vault-api)
 __pycache__/
 venv/
 .venv
@@ -6,6 +25,11 @@ venv/
 
 # build output
 dist/
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.idea/
 
 # freebuff tooling state
 .freebuff/
