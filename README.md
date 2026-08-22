@@ -4,7 +4,7 @@
 
 > Isolate every payment token. Contain breaches before they spread.
 
-**Hackathon Track:** FinTech · **Category:** FinTech
+**Hackathon Track:** FinTech · **Category:** Security
 
 ## Screenshots
 
