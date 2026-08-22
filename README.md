@@ -41,6 +41,45 @@ A webhook receives the breach event, validates it (required fields, then a high/
 - **Live workflow:** [Perimeter - Breach Containment](https://lohit22.app.n8n.cloud/workflow/BvDtuRsfc8M89lse)
 - **Importable JSON:** [`workflows/perimeter-breach-containment.json`](workflows/perimeter-breach-containment.json) — in n8n, use **Workflows → Import from File** to load it into your own instance.
 
+## Chrome Extension
+
+Perimeter ships with a Chrome **Manifest V3** extension that brings token isolation directly into checkout — instead of entering a real card number, users generate a merchant-scoped Perimeter token and inject it straight into the payment field.
+
+```
+Checkout page
+     ↓
+Detect merchant domain
+     ↓
+Generate Perimeter Token → POST /tokens → Vault API
+     ↓
+GET /tokens/{id}/reveal
+     ↓
+Inject token into card field
+```
+
+The extension:
+
+- Detects the current checkout domain.
+- Requests a merchant-scoped token from the Perimeter Vault API.
+- Uses the configured monthly limit and recurring-payment policy.
+- Retrieves the token through the secure reveal endpoint.
+- Automatically fills the payment field with the generated token.
+- Stores the demo API key in `chrome.storage.local` rather than committing it to the repository.
+
+### Try the extension
+
+Load it locally through Chrome Developer Mode:
+
+1. Go to `chrome://extensions`
+2. Enable **Developer mode**
+3. Click **Load unpacked** and select the repo's `extension/` folder
+4. Open the demo checkout: `extension/demo/checkout.html`
+5. Click the card-number field, open the Perimeter extension, and click **Generate Perimeter Token** — the token is injected into the payment field
+
+The demo uses the live Perimeter Vault API, while the included checkout page provides a safe environment for testing the complete token-generation and injection flow.
+
+> **Note:** The extension is currently distributed as an unpacked hackathon MVP and is not yet published to the Chrome Web Store.
+
 ## How we built it
 
 **Frontend.** Vite + React 18 + TypeScript + Tailwind CSS 3, with React Router for the five-page app and Zustand for modal state. The centerpiece Token Isolation Map is pure SVG/CSS positioned radially around the funding source — deliberately zero charting dependencies. Everything renders from a typed mock dataset today so the product can be demoed with no backend running.
@@ -127,10 +166,6 @@ uvicorn main:app --reload
 ```
 
 API docs at http://localhost:8000/docs. `GET /health` confirms the service is up.
-
-### Chrome extension
-
-Load the `extension/` folder in Chrome (`chrome://extensions` → Developer mode → **Load unpacked**), open the popup → right-click → **Inspect**, and store the API key with `await chrome.storage.local.set({ perimeterApiKey: "<your X-API-Key>" })`. The popup issues and reveals a token for a checkout form. See `extension/README.md` for details.
 
 ## Project Structure
 
