@@ -27,6 +27,8 @@ class TokenCreate(BaseModel):
     vendor_id: UUID
     monthly_limit: float
     recurring: bool = False
+    one_time_use: bool = False
+    auto_expiry: bool = False
 
 
 class TokenRead(BaseModel):
@@ -39,6 +41,8 @@ class TokenRead(BaseModel):
     spent: float
     issued_at: datetime
     last_used_at: Optional[datetime]
+    one_time_use: bool
+    expires_at: Optional[datetime]
 
 
 class TokenReveal(BaseModel):
@@ -58,6 +62,8 @@ class TokenListItem(BaseModel):
     spent: float
     issued_at: datetime
     last_used_at: Optional[datetime]
+    one_time_use: bool
+    expires_at: Optional[datetime]
 
 
 class TransactionCreate(BaseModel):
@@ -143,3 +149,13 @@ class AuditEventRead(BaseModel):
     detail: str
     done: bool
     created_at: datetime
+
+
+class EmergencyLockResponse(BaseModel):
+    locked_count: int
+    token_ids: List[UUID]
+
+
+class EmergencyLockResumeResponse(BaseModel):
+    resumed_count: int
+    token_ids: List[UUID]
