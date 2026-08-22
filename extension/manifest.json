@@ -21,7 +21,11 @@
     "type": "module"
   },
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
-  "host_permissions": ["http://*/*", "https://*/*"],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*",
+    "https://perimeter-vault-api.onrender.com/*"
+  ],
   "content_scripts": [
     {
       "matches": [
