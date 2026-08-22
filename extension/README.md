@@ -45,22 +45,46 @@ Service worker → api/vault-api.js → Mock or Real Vault API
 chrome.scripting.executeScript → fills the focused input on the active tab
 ```
 
-The extension has **no static content script** — it injects a small
-fill function into the page on demand via `chrome.scripting.executeScript`
-when you click "Fill Payment Field". This keeps permissions minimal (no
-`<all_urls>`, no host permissions) and avoids a persistent content script
-running on every page.
+### How the fill works
+
+Clicking "Fill payment field" runs a **two-pass injection**:
+
+1. **Probe** — `cardFieldAgent(null)` is injected into *every frame* of the
+   tab. Each frame scores its own inputs (autocomplete `cc-number`,
+   name/id/placeholder/label matching, `inputmode=numeric`, maxlength,
+   with cvv/expiry/name fields actively rejected) and returns the best
+   score. Nothing is written.
+2. **Fill** — the highest-scoring frame is re-injected, re-runs the same
+   scorer, and writes the token into the winning field via the native
+   `value` setter, then dispatches `input`/`change`/`keyup` so React and
+   other frameworks actually register the value.
+
+**Why not `document.activeElement`?** The MVP asked the user to focus the
+card field first, then read `document.activeElement` at fill time. That
+can't work: opening the extension popup moves focus off the page, so by
+the time the injected code ran, `activeElement` was `<body>` and the fill
+always failed with "focus the payment field first". Focus is still used —
+a genuinely focused input gets a large scoring bonus — but detection no
+longer depends on it.
 
 ## Permissions
 
-- `activeTab` — read the current tab's URL only when you interact with
-  the extension, no background tab access
-- `scripting` — inject the field-fill function into the active tab only
-  when you click "Fill Payment Field," not on every page load
-- `storage` — reserved for future use (session-scoped token state);
-  nothing is written to it yet in the MVP
+- `activeTab` — read the current tab's URL when you interact with the
+  extension
+- `scripting` — inject the field detector/filler into the active tab when
+  you click "Fill payment field"
+- `storage` — persists the issued-token ledger (masked values only) so it
+  survives service-worker restarts and reaches the dashboard
+- `tabs` — open the dashboard from the popup footer
+- `host_permissions: http://*/*, https://*/*` — **required** to inject
+  into cross-origin payment iframes. Most real checkouts (Stripe, Adyen,
+  Braintree) render the card field inside an iframe on a different origin;
+  `activeTab` alone only covers the top frame, which is why the MVP could
+  never fill on a real store.
 
-No `<all_urls>`, no host permissions, no persistent content script.
+One content script, scoped to `localhost` / `127.0.0.1` only
+(`content/dashboard-bridge.js`) — it mirrors the token ledger into the web
+dashboard. It does not run on any other site.
 
 ## Setup — loading into Chrome
 
@@ -76,8 +100,20 @@ That's it. No install, no build.
 
 ## Running the demo checkout page
 
-Open `demo/checkout.html` directly in Chrome (`File → Open File`, or drag
-it into a tab). It's a static page — no server required.
+From the repo root:
+
+```bash
+npm run demo
+```
+
+Then open <http://localhost:5500/checkout.html>.
+
+**Don't open `checkout.html` off disk.** Chrome refuses to inject into
+`file://` URLs unless you explicitly enable "Allow access to file URLs" on
+the extension's details page, and a `file://` URL has no real hostname so
+the vendor scope reads as garbage. Serving it over `http://localhost` is
+one command and avoids both problems. The popup detects `file://` and
+tells you this.
 
 ## Switching from mock to the real Render Vault API
 
@@ -162,14 +198,13 @@ path.
 ## Limitations
 
 - Mock mode only — no live connection to the Render Vault API yet
-- Ledger is in-memory and per-session; it resets when the service worker
-  restarts and isn't visible to the Base44 dashboard
-- No automatic payment-field detection on arbitrary sites — the user must
-  focus the field first, by design (see PRD §5)
-- `file://` checkout pages show an odd "domain" (no real hostname) — serve
-  the demo page over `http://localhost` for a cleaner demo, see below
-- Popup state (protected/unprotected) resets each time you close and
-  reopen the popup — there's no per-tab session persistence in this MVP
+- Only the masked token is persisted, so reopening the popup on a site you
+  already tokenized shows the token but can't re-fill it — issue a new one
+- Payment fields are detected heuristically. It handles standard checkouts
+  and same-origin iframes well; a site that renders its card input inside
+  a canvas or a shadow root with closed mode won't be reachable
+- `file://` pages are blocked by Chrome unless you tick "Allow access to
+  file URLs" on the extension's details page — use `npm run demo` instead
 
 ## Security disclaimer
 
@@ -177,3 +212,31 @@ This is a hackathon prototype using simulated payment tokens. It does not
 issue real payment cards, does not integrate with any bank or card
 network, and does not provide production-grade payment security. The
 mock token values (`perim_demo_...`) are not usable for real payments.
+
+## Dashboard integration
+
+Every issued token is written to `chrome.storage.local` under
+`perimeter.ledger` (masked values only — the raw token is never
+persisted).
+
+A web page can't read `chrome.storage`, and the extension can't reach the
+React app's memory, so the two are bridged:
+
+```
+popup  →  service worker  →  chrome.storage.local["perimeter.ledger"]
+                                      │
+                     content/dashboard-bridge.js  (localhost only)
+                                      │
+                    localStorage["perimeter.extensionTokens"]
+                          + window event "perimeter:tokens-updated"
+                                      │
+                   src/state/extensionTokens.ts  →  Tokens page
+```
+
+The bridge re-syncs on `chrome.storage.onChanged`, so issuing a token with
+the dashboard already open updates it live — no refresh. It also stamps
+`data-perimeter-extension="1"` on `<html>` so the dashboard can show a
+"connected" state rather than guessing.
+
+To see it: run `npm run dev` (dashboard) and `npm run demo` (store), issue
+a token on the demo checkout, then open the dashboard's **Tokens** page.

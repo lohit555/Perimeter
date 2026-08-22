@@ -2,6 +2,7 @@ import { Info, Lock, Plus } from 'lucide-react'
 import TokenIsolationMap from '../components/TokenIsolationMap'
 import RecentTransactions from '../components/RecentTransactions'
 import { merchants, transactions } from '../data/mock'
+import { useExtensionTokens } from '../state/extensionTokens'
 import { useModals } from '../state/modals'
 
 function greeting(d = new Date()) {
@@ -18,11 +19,14 @@ const longDate = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 })
 
-const stats = [
+function buildStats(extensionActive: number) {
+  return [
   {
     label: 'Active tokens',
-    value: String(merchants.filter((m) => m.status === 'Active').length),
-    hint: 'Tokens currently able to be charged.',
+    value: String(
+      merchants.filter((m) => m.status === 'Active').length + extensionActive
+    ),
+    hint: 'Tokens currently able to be charged, including any issued from the browser extension.',
   },
   {
     label: 'Flagged charges',
@@ -39,10 +43,14 @@ const stats = [
     value: '$0.00',
     hint: 'Unauthorized spend that reached your funding card.',
   },
-]
+  ]
+}
 
 export default function Dashboard() {
   const openNewToken = useModals((s) => s.openNewToken)
+  const extensionTokens = useExtensionTokens()
+  const extensionActive = extensionTokens.filter((t) => t.status === 'active').length
+  const stats = buildStats(extensionActive)
 
   return (
     <div className="mx-auto max-w-[1280px] px-10 py-10">
@@ -66,7 +74,11 @@ export default function Dashboard() {
         </div>
 
         <div className="text-right">
-          <div className="text-[14px] text-graphite-soft">6 of 7 sites tokenized</div>
+          <div className="text-[14px] text-graphite-soft">
+            {extensionActive > 0
+              ? `${extensionActive} issued from your browser`
+              : '6 of 7 sites tokenized'}
+          </div>
           <button
             onClick={openNewToken}
             className="chip mt-3 border-accent bg-accent px-4 py-2.5 text-[14px] text-white hover:border-accent-deep hover:bg-accent-deep hover:text-white"

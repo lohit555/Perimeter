@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { ArrowUpDown, Layers, Plus } from 'lucide-react'
+import { ArrowUpDown, Chrome, Layers, Plus } from 'lucide-react'
 import CardPicker, { CardChip } from '../components/CardPicker'
-import { StatusBadge } from '../components/Badges'
-import { cardById, cards, merchants, type Merchant } from '../data/mock'
+import { cardById, cards, merchants, type TokenStatus } from '../data/mock'
+import { useExtensionInstalled, useExtensionTokens } from '../state/extensionTokens'
 import { useModals } from '../state/modals'
 
 type SortKey = 'site' | 'card' | 'status' | 'lastUsed'
@@ -14,59 +14,102 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: 'lastUsed', label: 'Last used' },
 ]
 
-const statusRank: Record<Merchant['status'], number> = {
-  Active: 0,
-  Paused: 1,
-  Revoked: 2,
+const statusRank: Record<TokenStatus, number> = { Active: 0, Paused: 1, Revoked: 2 }
+
+/** Tokens from both sources normalise onto this shape before rendering. */
+interface TokenView {
+  key: string
+  name: string
+  domain: string
+  initials: string
+  logoColor: string
+  maskedToken: string
+  /** null for tokens the extension issued — they aren't bound to a card yet */
+  cardId: string | null
+  status: TokenStatus
+  detail: string
+  lastUsed: string
+  fromExtension: boolean
 }
 
-function TokenRow({ m }: { m: Merchant }) {
-  const card = cardById(m.cardId)
+const EXT_COLORS = ['#0D9488', '#2563EB', '#7C3AED', '#DB2777', '#EA580C', '#0891B2']
+
+function colorFor(seed: string) {
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0
+  return EXT_COLORS[Math.abs(hash) % EXT_COLORS.length]
+}
+
+function initialsFor(name: string) {
+  const words = name.replace(/[^a-zA-Z ]/g, ' ').trim().split(/\s+/)
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase()
+  return (name.slice(0, 2) || '??').toUpperCase()
+}
+
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.round(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.round(hrs / 24)}d ago`
+}
+
+const StatusPill = ({ status }: { status: TokenStatus }) => {
+  const tone =
+    status === 'Active'
+      ? 'bg-emerald-50 text-emerald-800'
+      : status === 'Paused'
+      ? 'bg-amber-50 text-amber-800'
+      : 'bg-rose-50 text-rose-800'
+  return <span className={`badge ${tone}`}>{status}</span>
+}
+
+function TokenRow({ t }: { t: TokenView }) {
+  const card = t.cardId ? cardById(t.cardId) : undefined
   return (
     <div className="row-rule grid grid-cols-12 items-center gap-4 px-6 py-4 transition-colors hover:bg-paper-sunken/60">
-      {/* site */}
       <div className="col-span-12 flex min-w-0 items-center gap-3 sm:col-span-4">
         <div
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[11px] text-white"
-          style={{ backgroundColor: m.logoColor }}
+          style={{ backgroundColor: t.logoColor }}
         >
-          {m.initials}
+          {t.initials}
         </div>
         <div className="min-w-0">
-          <div className="truncate text-[15px] text-graphite">{m.name}</div>
-          <div className="truncate font-mono text-[11px] text-graphite-faint">
-            {m.domain}
+          <div className="flex items-center gap-2">
+            <span className="truncate text-[15px] text-graphite">{t.name}</span>
+            {t.fromExtension && (
+              <Chrome className="h-3.5 w-3.5 shrink-0 text-accent" strokeWidth={1.75} />
+            )}
           </div>
+          <div className="truncate font-mono text-[11px] text-graphite-faint">{t.domain}</div>
         </div>
       </div>
 
-      {/* token code */}
       <div className="col-span-6 sm:col-span-3">
-        <div className="font-mono text-[14px] text-graphite">{m.maskedToken}</div>
-        <div className="t-micro text-graphite-faint">
-          {m.recurring ? 'Recurring' : 'One-off'}
-        </div>
+        <div className="font-mono text-[14px] text-graphite">{t.maskedToken}</div>
+        <div className="t-micro text-graphite-faint">{t.detail}</div>
       </div>
 
-      {/* funding card */}
       <div className="col-span-6 flex items-center gap-2 sm:col-span-3">
-        {card && (
+        {card ? (
           <>
             <CardChip tone={card.tone} />
             <div className="min-w-0">
               <div className="truncate text-[14px] text-graphite">{card.label}</div>
-              <div className="font-mono text-[11px] text-graphite-faint">
-                •••• {card.last4}
-              </div>
+              <div className="font-mono text-[11px] text-graphite-faint">•••• {card.last4}</div>
             </div>
           </>
+        ) : (
+          <span className="text-[13px] text-graphite-faint">Not yet bound</span>
         )}
       </div>
 
-      {/* status */}
       <div className="col-span-12 flex items-center justify-between gap-3 sm:col-span-2 sm:justify-end">
-        <StatusBadge status={m.status} />
-        <span className="t-micro w-20 text-right text-graphite-faint">{m.lastUsed}</span>
+        <StatusPill status={t.status} />
+        <span className="t-micro w-20 text-right text-graphite-faint">{t.lastUsed}</span>
       </div>
     </div>
   )
@@ -74,18 +117,54 @@ function TokenRow({ m }: { m: Merchant }) {
 
 export default function Tokens() {
   const openNewToken = useModals((s) => s.openNewToken)
+  const extensionTokens = useExtensionTokens()
+  const extensionInstalled = useExtensionInstalled()
+
   const [cardFilter, setCardFilter] = useState<string | null>(null)
   const [sort, setSort] = useState<SortKey>('site')
   const [asc, setAsc] = useState(true)
   const [grouped, setGrouped] = useState(true)
 
+  /* Both sources normalised into one list. */
+  const all: TokenView[] = useMemo(() => {
+    const fromMock: TokenView[] = merchants.map((m) => ({
+      key: m.id,
+      name: m.name,
+      domain: m.domain,
+      initials: m.initials,
+      logoColor: m.logoColor,
+      maskedToken: m.maskedToken,
+      cardId: m.cardId,
+      status: m.status,
+      detail: m.recurring ? 'Recurring' : 'One-off',
+      lastUsed: m.lastUsed,
+      fromExtension: false,
+    }))
+
+    const fromExtension: TokenView[] = extensionTokens.map((t) => ({
+      key: t.tokenId,
+      name: t.vendor,
+      domain: t.domain,
+      initials: initialsFor(t.vendor),
+      logoColor: colorFor(t.domain),
+      maskedToken: t.maskedToken,
+      cardId: null,
+      status: t.status === 'revoked' ? 'Revoked' : 'Active',
+      detail: 'Issued in browser',
+      lastUsed: relativeTime(t.issuedAt),
+      fromExtension: true,
+    }))
+
+    return [...fromExtension, ...fromMock]
+  }, [extensionTokens])
+
   const filtered = useMemo(() => {
-    const list = cardFilter ? merchants.filter((m) => m.cardId === cardFilter) : merchants
+    const list = cardFilter ? all.filter((t) => t.cardId === cardFilter) : all
     const dir = asc ? 1 : -1
     return [...list].sort((a, b) => {
       switch (sort) {
         case 'card':
-          return dir * a.cardId.localeCompare(b.cardId)
+          return dir * (a.cardId || 'zz').localeCompare(b.cardId || 'zz')
         case 'status':
           return dir * (statusRank[a.status] - statusRank[b.status])
         case 'lastUsed':
@@ -94,14 +173,28 @@ export default function Tokens() {
           return dir * a.name.localeCompare(b.name)
       }
     })
-  }, [cardFilter, sort, asc])
+  }, [all, cardFilter, sort, asc])
 
-  /* When grouping is on, tokens are bucketed under their funding card. */
+  /* Grouped view buckets by funding card, with browser-issued tokens last. */
   const groups = useMemo(() => {
     if (!grouped) return null
-    return cards
-      .map((c) => ({ card: c, items: filtered.filter((m) => m.cardId === c.id) }))
+    const byCard = cards
+      .map((c) => ({
+        id: c.id,
+        label: c.label,
+        tone: c.tone,
+        last4: c.last4,
+        items: filtered.filter((t) => t.cardId === c.id),
+      }))
       .filter((g) => g.items.length > 0)
+
+    const unbound = filtered.filter((t) => t.cardId === null)
+    return unbound.length
+      ? [
+          ...byCard,
+          { id: 'ext', label: 'Issued in browser', tone: '#0D9488', last4: null, items: unbound },
+        ]
+      : byCard
   }, [filtered, grouped])
 
   return (
@@ -123,7 +216,22 @@ export default function Tokens() {
         </button>
       </div>
 
-      {/* controls */}
+      {/* extension connection state */}
+      <div className="card mb-5 flex flex-wrap items-center gap-3 px-6 py-4">
+        <Chrome
+          className={`h-[18px] w-[18px] ${extensionInstalled ? 'text-accent' : 'text-graphite-faint'}`}
+          strokeWidth={1.75}
+        />
+        <span className="text-[14px] text-graphite">
+          {extensionInstalled ? 'Browser extension connected' : 'Browser extension not detected'}
+        </span>
+        <span className="text-[13px] text-graphite-faint">
+          {extensionInstalled
+            ? `${extensionTokens.length} token${extensionTokens.length === 1 ? '' : 's'} issued from checkout pages`
+            : 'Load the extension and issue a token — it will appear here automatically.'}
+        </span>
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <CardPicker value={cardFilter} onChange={setCardFilter} />
 
@@ -141,9 +249,7 @@ export default function Tokens() {
               className={`chip ${sort === s.key ? 'chip-active' : ''}`}
             >
               {s.label}
-              {sort === s.key && (
-                <ArrowUpDown className="h-3 w-3" strokeWidth={2} />
-              )}
+              {sort === s.key && <ArrowUpDown className="h-3 w-3" strokeWidth={2} />}
             </button>
           ))}
         </div>
@@ -157,7 +263,6 @@ export default function Tokens() {
         </button>
       </div>
 
-      {/* column header */}
       <div className="mb-2.5 hidden grid-cols-12 gap-4 px-6 sm:grid">
         <div className="t-label col-span-4 text-graphite-faint">Site</div>
         <div className="t-label col-span-3 text-graphite-faint">Token</div>
@@ -167,30 +272,32 @@ export default function Tokens() {
 
       {groups ? (
         <div className="space-y-4">
-          {groups.map(({ card, items }) => (
-            <div key={card.id} className="card-flush">
+          {groups.map((g) => (
+            <div key={g.id} className="card-flush">
               <div className="flex items-center justify-between border-b border-line bg-paper-sunken/60 px-6 py-3.5">
                 <div className="flex items-center gap-2">
-                  <CardChip tone={card.tone} />
-                  <span className="text-[15px] text-graphite">{card.label}</span>
-                  <span className="font-mono text-[11px] text-graphite-faint">
-                    •••• {card.last4}
-                  </span>
+                  <CardChip tone={g.tone} />
+                  <span className="text-[15px] text-graphite">{g.label}</span>
+                  {g.last4 && (
+                    <span className="font-mono text-[11px] text-graphite-faint">
+                      •••• {g.last4}
+                    </span>
+                  )}
                 </div>
                 <span className="t-micro text-graphite-faint">
-                  {items.length} token{items.length === 1 ? '' : 's'}
+                  {g.items.length} token{g.items.length === 1 ? '' : 's'}
                 </span>
               </div>
-              {items.map((m) => (
-                <TokenRow key={m.id} m={m} />
+              {g.items.map((t) => (
+                <TokenRow key={t.key} t={t} />
               ))}
             </div>
           ))}
         </div>
       ) : (
         <div className="card-flush">
-          {filtered.map((m) => (
-            <TokenRow key={m.id} m={m} />
+          {filtered.map((t) => (
+            <TokenRow key={t.key} t={t} />
           ))}
         </div>
       )}

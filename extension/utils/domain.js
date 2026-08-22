@@ -11,6 +11,14 @@ export function getCanonicalDomain(url) {
   }
 }
 
+// file:// pages are a special case: Chrome refuses to inject into them
+// unless the user ticks "Allow access to file URLs" on the extension's
+// details page. Opening demo/checkout.html straight off disk lands here,
+// which is why the demo appeared broken.
+export function isFileUrl(url) {
+  return Boolean(url) && url.startsWith("file://");
+}
+
 // Returns true for pages the extension cannot / should not run on
 // (chrome://, the Chrome Web Store, other extension pages, etc).
 export function isRestrictedUrl(url) {

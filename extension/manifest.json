@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Perimeter",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Vendor-scoped payment tokens for checkout — issue a disposable token instead of exposing your real card.",
   "action": {
     "default_popup": "popup/popup.html",
@@ -20,5 +20,16 @@
     "service_worker": "background/service-worker.js",
     "type": "module"
   },
-  "permissions": ["activeTab", "scripting", "storage"]
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["content/dashboard-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ]
 }
