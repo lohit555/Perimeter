@@ -3,7 +3,8 @@
 // extension itself — the extension's job stops at filling the field.
 
 document.getElementById("complete-purchase").addEventListener("click", () => {
-  const cardValue = document.getElementById("card-number").value.trim();
+  const cardInput = document.getElementById("card-number");
+  const cardValue = cardInput.value.trim();
   const resultEl = document.getElementById("transaction-result");
 
   if (!cardValue) {
@@ -12,7 +13,10 @@ document.getElementById("complete-purchase").addEventListener("click", () => {
     return;
   }
 
-  const looksLikeToken = cardValue.startsWith("perim_");
+  // A token is either a mock perim_ value or a real token the extension
+  // filled (which stamps the field with data-perimeter-filled).
+  const filledByPerimeter = cardInput.dataset.perimeterFilled === "1";
+  const looksLikeToken = cardValue.startsWith("perim_") || filledByPerimeter;
   const tokenTail = cardValue.slice(-6);
 
   resultEl.hidden = false;

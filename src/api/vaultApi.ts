@@ -139,6 +139,16 @@ export interface AuditEventRead {
   created_at: string
 }
 
+export interface EmergencyLockResponse {
+  locked_count: number
+  token_ids: string[]
+}
+
+export interface EmergencyResumeResponse {
+  resumed_count: number
+  token_ids: string[]
+}
+
 const API_BASE_URL =
   import.meta.env.VITE_VAULT_API_URL || 'https://perimeter-vault-api.onrender.com'
 const API_KEY = import.meta.env.VITE_VAULT_API_KEY || ''
@@ -276,6 +286,20 @@ export const vaultApi = {
       recurring: params.recurring ?? true,
       one_time_use: params.oneTimeUse ?? false,
       auto_expiry: params.autoExpiry ?? false,
+    })
+  },
+
+  emergencyLock: (): Promise<EmergencyLockResponse> => {
+    return apiFetch<EmergencyLockResponse>('/emergency-lock', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  },
+
+  emergencyLockResume: (): Promise<EmergencyResumeResponse> => {
+    return apiFetch<EmergencyResumeResponse>('/emergency-lock/resume', {
+      method: 'POST',
+      body: JSON.stringify({}),
     })
   },
 }

@@ -404,6 +404,11 @@ function cardFieldAgent(token) {
   best.dispatchEvent(new Event("change", { bubbles: true }));
   best.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
 
+  // Stamp the field so the page can tell this value came from Perimeter.
+  // Real (live-mode) tokens are plain 16-digit numbers, so a perim_ prefix
+  // check can't work — the marker is the ground truth.
+  best.dataset.perimeterFilled = "1";
+
   return { ok: true, score: bestScore, filled: true, label };
 }
 
