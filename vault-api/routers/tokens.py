@@ -1,4 +1,6 @@
+import calendar
 import secrets
+from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
@@ -9,7 +11,7 @@ from sqlmodel import select
 from auth import require_api_key
 from crypto import decrypt_token, encrypt_token
 from db import get_session
-from models import Token, Vendor
+from models import Token, Vendor, utcnow
 from schemas import TokenCreate, TokenListItem, TokenReveal, TokenRead
 
 router = APIRouter(dependencies=[Depends(require_api_key)])
@@ -19,8 +21,18 @@ def _generate_raw_value() -> str:
     return "".join(secrets.choice("0123456789") for _ in range(16))
 
 
+def _end_of_month(dt: datetime) -> datetime:
+    last_day = calendar.monthrange(dt.year, dt.month)[1]
+    return dt.replace(day=last_day, hour=23, minute=59, second=59, microsecond=0)
+
+
 async def issue_token(
-    session: AsyncSession, vendor_id: UUID, monthly_limit: float, recurring: bool = False
+    session: AsyncSession,
+    vendor_id: UUID,
+    monthly_limit: float,
+    recurring: bool = False,
+    one_time_use: bool = False,
+    expires_at: Optional[datetime] = None,
 ) -> Token:
     raw_value = _generate_raw_value()
     token = Token(
@@ -29,6 +41,8 @@ async def issue_token(
         masked_value=f"•••• {raw_value[-4:]}",
         monthly_limit=monthly_limit,
         recurring=recurring,
+        one_time_use=one_time_use,
+        expires_at=expires_at,
     )
     session.add(token)
     await session.commit()
@@ -42,7 +56,15 @@ async def create_token(payload: TokenCreate, session: AsyncSession = Depends(get
     if not vendor:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
 
-    return await issue_token(session, payload.vendor_id, payload.monthly_limit, payload.recurring)
+    expires_at = _end_of_month(utcnow()) if payload.auto_expiry else None
+    return await issue_token(
+        session,
+        payload.vendor_id,
+        payload.monthly_limit,
+        payload.recurring,
+        one_time_use=payload.one_time_use,
+        expires_at=expires_at,
+    )
 
 
 @router.get("/tokens", response_model=List[TokenListItem])
@@ -71,6 +93,8 @@ async def list_tokens(
             spent=token.spent,
             issued_at=token.issued_at,
             last_used_at=token.last_used_at,
+            one_time_use=token.one_time_use,
+            expires_at=token.expires_at,
         )
         for token, vendor in rows
     ]

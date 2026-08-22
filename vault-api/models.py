@@ -39,6 +39,9 @@ class Token(SQLModel, table=True):
     spent: float = Field(default=0)
     issued_at: datetime = Field(default_factory=utcnow, sa_column=_tz_column())
     last_used_at: Optional[datetime] = Field(default=None, sa_column=_tz_column(nullable=True))
+    one_time_use: bool = Field(default=False)
+    expires_at: Optional[datetime] = Field(default=None, sa_column=_tz_column(nullable=True))
+    locked_by_emergency: bool = Field(default=False)
 
 
 class Transaction(SQLModel, table=True):

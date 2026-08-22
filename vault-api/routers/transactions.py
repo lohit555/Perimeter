@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from auth import require_api_key
 from db import get_session
-from models import Token, Transaction, Vendor
+from models import Token, Transaction, Vendor, utcnow
 from schemas import TransactionCreate, TransactionRead
 
 router = APIRouter(dependencies=[Depends(require_api_key)])
@@ -28,6 +28,10 @@ async def create_transaction(
     reason = None
     if token.status != "active":
         reason = f"token is {token.status}"
+    elif token.expires_at is not None and utcnow() > token.expires_at:
+        reason = "token expired"
+        token.status = "revoked"
+        session.add(token)
     elif not _domain_matches(payload.source_domain, vendor.domain):
         reason = f"charge from untrusted domain {payload.source_domain}"
     elif token.spent + payload.amount > token.monthly_limit:
@@ -47,6 +51,8 @@ async def create_transaction(
     if txn_status == "clear":
         token.spent += payload.amount
         token.last_used_at = transaction.created_at
+        if token.one_time_use:
+            token.status = "revoked"
         session.add(token)
 
     await session.commit()
