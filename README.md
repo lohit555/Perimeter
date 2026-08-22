@@ -4,6 +4,8 @@
 
 > Isolate every payment token. Contain breaches before they spread.
 
+**Hackathon Track:** FinTech · **Category:** FinTech
+
 ## Screenshots
 
 ![Perimeter landing page](screenshots/hero.png)
@@ -73,16 +75,21 @@ A webhook receives the breach event, validates it (required fields, then a high/
 ## What's next
 
 - Wire the dashboard to the vault-api end to end, replacing the mock dataset.
-- Emergency Lock as a real endpoint that pauses every token in one call.
 - A live breach feed over SSE/WebSockets instead of polled history.
 - Registrable-domain matching (public suffix list) for transaction screening.
-- One-time-use self-destruct logic enforced server-side.
+- A settings screen in the Chrome extension for entering the API key.
 
 ## Built With
 
 Frontend: React, TypeScript, Vite, Tailwind CSS 3, Zustand, React Router, lucide-react.
 
 Backend: FastAPI, SQLModel, asyncpg, PostgreSQL, cryptography (AES-GCM), uvicorn.
+
+Automation: n8n — live breach-containment workflow with webhook trigger.
+
+Chrome extension: Manifest V3 (vanilla JS), wired to the live Vault API.
+
+Deployment: Render (Vault API).
 
 ## Getting Started
 
@@ -121,6 +128,10 @@ uvicorn main:app --reload
 
 API docs at http://localhost:8000/docs. `GET /health` confirms the service is up.
 
+### Chrome extension
+
+Load the `extension/` folder in Chrome (`chrome://extensions` → Developer mode → **Load unpacked**), open the popup → right-click → **Inspect**, and store the API key with `await chrome.storage.local.set({ perimeterApiKey: "<your X-API-Key>" })`. The popup issues and reveals a token for a checkout form. See `extension/README.md` for details.
+
 ## Project Structure
 
 ```
@@ -130,11 +141,14 @@ API docs at http://localhost:8000/docs. `GET /health` confirms the service is up
 │   ├── data/mock.ts      # typed mock dataset powering the UI
 │   └── state/modals.ts   # Zustand modal state
 ├── vault-api/            # FastAPI + Postgres backend
-│   ├── routers/          # vendors, tokens, transactions, breaches, ledger, audit
+│   ├── routers/          # vendors, tokens, transactions, breaches, ledger, audit, emergency lock
 │   ├── crypto.py         # AES-256-GCM encryption/decryption
 │   ├── auth.py           # X-API-Key auth (constant-time compare)
 │   ├── models.py         # SQLModel schema
 │   └── seed.py           # demo data
+├── extension/            # Chrome extension (Manifest V3)
+├── workflows/            # n8n breach-containment workflow export
+├── screenshots/          # README screenshots
 └── public/shield.svg     # app icon
 ```
 
@@ -151,6 +165,8 @@ API docs at http://localhost:8000/docs. `GET /health` confirms the service is up
 | POST | `/breach-events` | Report a breach; auto-revoke + rotate tokens |
 | GET | `/ledger` | Merchants, risk levels, and activity feed |
 | POST / GET | `/audit-events` | Append / read the audit trail |
+| POST | `/emergency-lock` | Pause every active token across all vendors |
+| POST | `/emergency-lock/resume` | Resume tokens paused by an emergency lock |
 
 ## Try it out
 
