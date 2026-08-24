@@ -101,7 +101,7 @@ export default function Sidebar({ onEmergency }: { onEmergency: () => void }) {
       </div>
 
       <div className="space-y-1 px-3 pb-2">
-        <a href="#" className="nav-link">
+        <a href="https://github.com/lohit555/Perimeter" target="_blank" rel="noreferrer" className="nav-link">
           <LifeBuoy className="h-[18px] w-[18px]" strokeWidth={1.75} />
           Resources
         </a>
