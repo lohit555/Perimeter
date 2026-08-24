@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { ArrowRight, CreditCard } from 'lucide-react'
 import { cards, merchants as mockMerchants, type Merchant } from '../data/mock'
@@ -108,13 +109,13 @@ export default function TokenIsolationMap({
         <span className="text-[13px] text-graphite-faint">
           {scoped.length} token{scoped.length === 1 ? '' : 's'} on this card
         </span>
-        <a
-          href="/tokens"
+        <Link
+          to="/tokens"
           className="inline-flex items-center gap-1.5 text-[14px] text-accent-deep transition-colors hover:text-accent"
         >
           View all
           <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
-        </a>
+        </Link>
       </div>
     </div>
   )
