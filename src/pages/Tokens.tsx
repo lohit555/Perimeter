@@ -71,7 +71,7 @@ const StatusPill = ({ status }: { status: TokenStatus }) => {
   return <span className={`badge ${tone}`}>{status}</span>
 }
 
-function TokenRow({ t, onRevoke }: { t: TokenView; onRevoke?: (id: string) => void }) {
+function TokenRow({ t, canRevoke, onRevoke }: { t: TokenView; canRevoke?: boolean; onRevoke?: (id: string) => void }) {
   const card = t.cardId ? cardById(t.cardId) : undefined
   const [revoking, setRevoking] = useState(false)
 
@@ -130,7 +130,7 @@ function TokenRow({ t, onRevoke }: { t: TokenView; onRevoke?: (id: string) => vo
       <div className="col-span-12 flex items-center justify-between gap-3 sm:col-span-2 sm:justify-end">
         <div className="flex items-center gap-2">
           <StatusPill status={t.status} />
-          {t.id && t.status === 'Active' && (
+          {canRevoke && t.id && t.status === 'Active' && (
             <button
               onClick={handleRevoke}
               disabled={revoking}
@@ -377,7 +377,7 @@ export default function Tokens() {
                 </span>
               </div>
               {g.items.map((t) => (
-                <TokenRow key={t.key} t={t} onRevoke={() => fetchTokens()} />
+                <TokenRow key={t.key} t={t} canRevoke={usingLiveApi} onRevoke={() => fetchTokens()} />
               ))}
             </div>
           ))}
@@ -385,7 +385,7 @@ export default function Tokens() {
       ) : (
         <div className="card-flush">
           {filtered.map((t) => (
-            <TokenRow key={t.key} t={t} onRevoke={() => fetchTokens()} />
+            <TokenRow key={t.key} t={t} canRevoke={usingLiveApi} onRevoke={() => fetchTokens()} />
           ))}
         </div>
       )}

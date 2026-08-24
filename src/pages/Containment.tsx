@@ -20,38 +20,57 @@ export default function Containment() {
   const [triggering, setTriggering] = useState(false)
   const [breachResponse, setBreachResponse] = useState<BreachEventResponse | null>(null)
   const [usingLiveApi, setUsingLiveApi] = useState(false)
+  const [triggerError, setTriggerError] = useState<string | null>(null)
   const contained = breachResponse !== null && breachResponse.rotations.length > 0
 
   const fetchAuditData = async (breachId?: string) => {
     setLoading(true)
     try {
       const auditEvents = await vaultApi.getAuditEvents(breachId)
-      if (Array.isArray(auditEvents) && auditEvents.length > 0) {
-        // Group by breach and show only the latest breach's trail, so the
-        // timeline stays one coherent story instead of every token mixed together.
-        const groups = new Map<string, AuditEventRead[]>()
-        for (const a of auditEvents) {
-          const key = a.breach_event_id ?? 'unattached'
-          if (!groups.has(key)) groups.set(key, [])
-          groups.get(key)!.push(a)
-        }
-        let latest: AuditEventRead[] = []
-        for (const g of groups.values()) {
-          g.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-          const lastTime = new Date(g[g.length - 1].created_at).getTime()
-          const currentLast = latest.length
-            ? new Date(latest[latest.length - 1].created_at).getTime()
-            : 0
-          if (!latest.length || lastTime > currentLast) latest = g
-        }
-        if (latest.length > 0) {
-          const mappedSteps: TimelineStep[] = latest.map((a) => ({
-            id: a.id,
-            label: a.label,
-            detail: a.detail,
-            done: a.done,
-          }))
-          setSteps(mappedSteps)
+      if (Array.isArray(auditEvents)) {
+        // Emergency Lock / Resume events are written without a breach_event_id —
+        // never let them into the containment timeline, or every past test run
+        // piles up as "N token(s) paused" entries.
+        const containmentEvents = auditEvents.filter((a) => a.breach_event_id)
+        if (containmentEvents.length > 0) {
+          // Group by breach and show only the latest breach's trail, so the
+          // timeline stays one coherent story instead of every token mixed together.
+          const groups = new Map<string, AuditEventRead[]>()
+          for (const a of containmentEvents) {
+            const key = a.breach_event_id ?? 'unattached'
+            if (!groups.has(key)) groups.set(key, [])
+            groups.get(key)!.push(a)
+          }
+          let latest: AuditEventRead[] = []
+          for (const g of groups.values()) {
+            g.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+            const lastTime = new Date(g[g.length - 1].created_at).getTime()
+            const currentLast = latest.length
+              ? new Date(latest[latest.length - 1].created_at).getTime()
+              : 0
+            if (!latest.length || lastTime > currentLast) latest = g
+          }
+          if (latest.length > 0) {
+            const mappedSteps: TimelineStep[] = latest.map((a) => ({
+              id: a.id,
+              label: a.label,
+              detail: a.detail,
+              done: a.done,
+            }))
+            setSteps(mappedSteps)
+            setUsingLiveApi(true)
+          }
+        } else {
+          // API is live but no real containment trail exists yet — show a clean
+          // placeholder instead of stale mock steps.
+          setSteps([
+            {
+              id: 'empty',
+              label: 'No containment events yet',
+              detail: 'Click "Simulate Breach Event" to trigger automatic containment and watch the live trail fill in.',
+              done: false,
+            },
+          ])
           setUsingLiveApi(true)
         }
       }
@@ -77,15 +96,19 @@ export default function Containment() {
 
   const handleTriggerBreach = async () => {
     setTriggering(true)
+    setTriggerError(null)
     try {
-      // Look up ledger to get a vendor ID (e.g. StreamFlix or ShadyDeals)
-      const ledger = await vaultApi.getLedger()
-      const targetVendorId = ledger.merchants[0]?.id || '907cc000-dd4a-463e-a456-457975e87ab1'
-      const targetVendorName = ledger.merchants[0]?.name || 'StreamFlix'
+      // The ledger's merchant id is the TOKEN id, not the vendor id — the
+      // vault's /breach-events endpoint needs the vendor. Pull the vendor
+      // from /tokens, which carries both.
+      const tokens = await vaultApi.getTokens()
+      const target = tokens.find((t) => t.status === 'active') || tokens[0]
+      const targetVendorId = target?.vendor_id || '907cc000-dd4a-463e-a456-457975e87ab1'
+      const targetVendorName = target?.vendor_name || 'StreamFlix'
 
       const res = await vaultApi.createBreachEvent({
         vendor_id: targetVendorId,
-        description: 'Reported data exposure: Performed auto-rotation containment test.',
+        description: `Reported data exposure at ${targetVendorName}: Performed auto-rotation containment test.`,
         auto_rotate: true,
       })
       setBreachResponse(res)
@@ -113,6 +136,7 @@ export default function Containment() {
       window.dispatchEvent(new CustomEvent('perimeter:data-updated'))
     } catch (err) {
       console.error('Failed to trigger breach event:', err)
+      setTriggerError("Could not reach the vault — the breach event was not created. Check that the vault is up, then try again.")
     } finally {
       setTriggering(false)
     }
@@ -154,6 +178,12 @@ export default function Containment() {
           </button>
         </div>
       </div>
+
+      {triggerError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {triggerError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Incident + timeline */}
