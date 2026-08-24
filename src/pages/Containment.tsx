@@ -20,20 +20,40 @@ export default function Containment() {
   const [triggering, setTriggering] = useState(false)
   const [breachResponse, setBreachResponse] = useState<BreachEventResponse | null>(null)
   const [usingLiveApi, setUsingLiveApi] = useState(false)
+  const contained = breachResponse !== null && breachResponse.rotations.length > 0
 
   const fetchAuditData = async (breachId?: string) => {
     setLoading(true)
     try {
       const auditEvents = await vaultApi.getAuditEvents(breachId)
       if (Array.isArray(auditEvents) && auditEvents.length > 0) {
-        const mappedSteps: TimelineStep[] = auditEvents.map((a) => ({
-          id: a.id,
-          label: a.label,
-          detail: a.detail,
-          done: a.done,
-        }))
-        setSteps(mappedSteps)
-        setUsingLiveApi(true)
+        // Group by breach and show only the latest breach's trail, so the
+        // timeline stays one coherent story instead of every token mixed together.
+        const groups = new Map<string, AuditEventRead[]>()
+        for (const a of auditEvents) {
+          const key = a.breach_event_id ?? 'unattached'
+          if (!groups.has(key)) groups.set(key, [])
+          groups.get(key)!.push(a)
+        }
+        let latest: AuditEventRead[] = []
+        for (const g of groups.values()) {
+          g.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          const lastTime = new Date(g[g.length - 1].created_at).getTime()
+          const currentLast = latest.length
+            ? new Date(latest[latest.length - 1].created_at).getTime()
+            : 0
+          if (!latest.length || lastTime > currentLast) latest = g
+        }
+        if (latest.length > 0) {
+          const mappedSteps: TimelineStep[] = latest.map((a) => ({
+            id: a.id,
+            label: a.label,
+            detail: a.detail,
+            done: a.done,
+          }))
+          setSteps(mappedSteps)
+          setUsingLiveApi(true)
+        }
       }
 
       // Fetch live ledger to update protected merchants
@@ -61,7 +81,8 @@ export default function Containment() {
       // Look up ledger to get a vendor ID (e.g. StreamFlix or ShadyDeals)
       const ledger = await vaultApi.getLedger()
       const targetVendorId = ledger.merchants[0]?.id || '907cc000-dd4a-463e-a456-457975e87ab1'
-      
+      const targetVendorName = ledger.merchants[0]?.name || 'StreamFlix'
+
       const res = await vaultApi.createBreachEvent({
         vendor_id: targetVendorId,
         description: 'Reported data exposure: Performed auto-rotation containment test.',
@@ -69,11 +90,25 @@ export default function Containment() {
       })
       setBreachResponse(res)
 
-      // Refresh audit timeline for this breach
-      if (res?.breach_event?.id) {
-        await fetchAuditData(res.breach_event.id)
+      // The vault API's auto_rotate writes no audit trail, so build the
+      // containment timeline client-side from the actual rotation result —
+      // each step names the specific token that was revoked / replaced.
+      if (res && res.rotations.length > 0) {
+        const tokens = await vaultApi.getTokens()
+        const maskOf = new Map(tokens.map((t) => [t.id, t.masked_value]))
+        const rotation = res.rotations[0]
+        const oldMask = maskOf.get(rotation.old_token_id) || 'a compromised token'
+        const newMask = maskOf.get(rotation.new_token_id) || 'a fresh token'
+        setSteps([
+          { id: 'locate', label: 'Token Located', detail: `${oldMask} located for ${targetVendorName}.`, done: true },
+          { id: 'revoke', label: 'Token Revoked', detail: `${oldMask} permanently revoked — no further charges possible.`, done: true },
+          { id: 'replace', label: 'Replacement Issued', detail: `Replacement ${newMask} issued for ${targetVendorName}.`, done: true },
+          { id: 'notify', label: 'User Notified', detail: `Perimeter contained the ${targetVendorName} breach. Other merchant tokens remain active.`, done: true },
+        ])
       } else {
-        await fetchAuditData()
+        setSteps([
+          { id: 'none', label: 'No Active Token', detail: `Breach received, but no active token was found for ${targetVendorName}. No containment was necessary.`, done: true },
+        ])
       }
       window.dispatchEvent(new CustomEvent('perimeter:data-updated'))
     } catch (err) {
@@ -124,24 +159,59 @@ export default function Containment() {
         {/* Incident + timeline */}
         <div className="lg:col-span-2 space-y-6">
           <div className="card overflow-hidden">
-            <div className="flex items-start gap-4 border-b border-red-100 bg-red-50/60 px-6 py-5">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-red-100">
-                <ShieldAlert className="h-6 w-6 text-red-600" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold text-ink">
-                    Incident: {breachResponse?.breach_event ? breachResponse.breach_event.description : 'ShadyDeals data exposure'}
-                  </h2>
-                  <span className="badge bg-red-100 text-red-700">Active</span>
+            {breachResponse ? (
+              <>
+                <div className="flex items-start gap-4 border-b border-red-100 bg-red-50/60 px-6 py-5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-red-100">
+                    <ShieldAlert className="h-6 w-6 text-red-600" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-semibold text-ink">
+                        Incident: {breachResponse.breach_event.description}
+                      </h2>
+                      {contained ? (
+                        <span className="badge bg-emerald-100 text-emerald-700">Contained</span>
+                      ) : (
+                        <span className="badge bg-red-100 text-red-700">Active</span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Detected at {new Date(breachResponse.breach_event.detected_at).toLocaleTimeString()}. Auto-rotations executed: {breachResponse.rotations.length}.
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-1 text-sm text-slate-500">
-                  {breachResponse?.breach_event
-                    ? `Detected at ${new Date(breachResponse.breach_event.detected_at).toLocaleTimeString()}. Auto-rotations executed: ${breachResponse.rotations.length}.`
-                    : 'Detected Aug 22, 09:14. The exposed token was isolated — no other merchant is affected.'}
-                </p>
+
+                {contained && (
+                  <div className="flex items-center gap-4 border-b border-teal-100 bg-teal-50/70 px-6 py-5">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-100">
+                      <CheckCircle2 className="h-7 w-7 text-teal" />
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-teal-800">Breach contained</div>
+                      <div className="mt-0.5 text-sm text-teal-700">
+                        {breachResponse.rotations.length} compromised token{breachResponse.rotations.length === 1 ? ' was' : 's were'} revoked and replaced automatically. No human action required — every other merchant is untouched.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex items-start gap-4 border-b border-emerald-100 bg-emerald-50/60 px-6 py-5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-100">
+                  <ShieldCheck className="h-6 w-6 text-emerald-600" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-semibold text-ink">No active incidents</h2>
+                    <span className="badge bg-emerald-100 text-emerald-700">All clear</span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Perimeter is monitoring every merchant. Click "Simulate Breach Event" to watch automatic containment in action.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="px-6 py-6">
               <h3 className="mb-5 text-sm font-semibold text-ink">Containment timeline</h3>

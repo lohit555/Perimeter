@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
+import { useAuth, signOut } from '../state/auth'
+import { vaultApi } from '../api/vaultApi'
 import {
   ChevronRight,
   Coins,
@@ -9,6 +12,7 @@ import {
   Settings,
   ShieldAlert,
   ShieldCheck,
+  LogOut,
 } from 'lucide-react'
 
 const nav = [
@@ -23,6 +27,30 @@ const footerNav = [
 ]
 
 export default function Sidebar({ onEmergency }: { onEmergency: () => void }) {
+  const { profile } = useAuth()
+  const [coverage, setCoverage] = useState({ tokenized: 6, total: 7 })
+
+  const fetchCoverage = async () => {
+    try {
+      const data = await vaultApi.getLedger()
+      if (data && Array.isArray(data.merchants) && data.merchants.length > 0) {
+        const tokenized = data.merchants.filter((m) => m.status === 'active').length
+        setCoverage({ tokenized, total: data.merchants.length })
+      }
+    } catch (err) {
+      console.warn('Vault API unavailable, keeping default coverage:', err)
+    }
+  }
+
+  useEffect(() => {
+    fetchCoverage()
+    const handleUpdate = () => fetchCoverage()
+    window.addEventListener('perimeter:data-updated', handleUpdate)
+    return () => window.removeEventListener('perimeter:data-updated', handleUpdate)
+  }, [])
+
+  const coveragePct = coverage.total > 0 ? Math.round((coverage.tokenized / coverage.total) * 100) : 0
+
   return (
     <aside className="bg-night-flat flex w-[264px] shrink-0 flex-col text-white">
       {/* brand */}
@@ -43,9 +71,9 @@ export default function Sidebar({ onEmergency }: { onEmergency: () => void }) {
           <ChevronRight className="h-4 w-4 text-slate-500" strokeWidth={1.75} />
         </button>
         <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full w-[86%] rounded-full bg-accent" />
+          <div className="h-full rounded-full bg-accent" style={{ width: `${coveragePct}%` }} />
         </div>
-        <div className="mt-2 text-[12px] text-slate-500">6 of 7 sites tokenized</div>
+        <div className="mt-2 text-[12px] text-slate-500">{coverage.tokenized} of {coverage.total} sites tokenized</div>
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
@@ -93,12 +121,19 @@ export default function Sidebar({ onEmergency }: { onEmergency: () => void }) {
       {/* account */}
       <div className="mt-1 flex items-center gap-3 border-t border-white/[0.08] px-5 py-4">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-[12px] text-white">
-          AR
+          {profile?.initials ?? 'U'}
         </div>
-        <div className="leading-tight">
-          <div className="text-[14px] text-white">Aaryan</div>
-          <div className="t-micro text-slate-500">Owner</div>
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate text-[14px] text-white">{profile?.name ?? 'User'}</div>
+          <div className="t-micro truncate text-slate-500">@{profile?.username ?? 'user'}</div>
         </div>
+        <button
+          onClick={() => signOut()}
+          title="Sign out"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <LogOut className="h-4 w-4" strokeWidth={1.75} />
+        </button>
       </div>
     </aside>
   )

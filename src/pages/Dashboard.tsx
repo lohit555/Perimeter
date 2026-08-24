@@ -5,6 +5,7 @@ import RecentTransactions from '../components/RecentTransactions'
 import { merchants as mockMerchants, transactions as mockTransactions, cards, type Merchant, type Transaction } from '../data/mock'
 import { useExtensionTokens } from '../state/extensionTokens'
 import { useModals } from '../state/modals'
+import { useAuth } from '../state/auth'
 import { vaultApi, type LedgerMerchant, type LedgerActivityEvent } from '../api/vaultApi'
 
 function greeting(d = new Date()) {
@@ -78,6 +79,7 @@ function mapApiActivityToTransaction(a: LedgerActivityEvent): Transaction {
 
 export default function Dashboard() {
   const openNewToken = useModals((s) => s.openNewToken)
+  const { profile } = useAuth()
   const extensionTokens = useExtensionTokens()
   const extensionActive = extensionTokens.filter((t) => t.status === 'active').length
 
@@ -160,7 +162,7 @@ export default function Dashboard() {
               )}
             </div>
             <h1 className="t-display mt-1.5 text-[44px] text-graphite">
-              {greeting()}, Aaryan
+              {greeting()}, {profile?.name ?? 'there'}
             </h1>
             <p className="mt-2 text-[15px] text-graphite-soft">
               Every site gets its own token. Nothing else can reach your card.
